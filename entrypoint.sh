@@ -33,7 +33,7 @@ function helmLint {
   fi
   echo "helm lint $CHART_LOCATION"
   printStepExecutionDelimeter
-  helm lint "$CHART_LOCATION"
+  helm lint "$CHART_LOCATION" --values "$CHART_VALUE"
   HELM_LINT_EXIT_CODE=$?
   printStepExecutionDelimeter
   if [ $HELM_LINT_EXIT_CODE -eq 0 ]; then
