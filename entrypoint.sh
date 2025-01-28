@@ -31,9 +31,9 @@ function helmLint {
     echo "Skipped due to condition: \$CHART_LOCATION is not provided"
     return -1
   fi
-  echo "helm lint $CHART_LOCATION"
+  echo "helm lint --values $CHART_VALUES $CHART_LOCATION"
   printStepExecutionDelimeter
-  helm lint "$CHART_LOCATION" --values "$CHART_VALUE"
+  helm lint --values "$CHART_VALUES" "$CHART_LOCATION"
   HELM_LINT_EXIT_CODE=$?
   printStepExecutionDelimeter
   if [ $HELM_LINT_EXIT_CODE -eq 0 ]; then
