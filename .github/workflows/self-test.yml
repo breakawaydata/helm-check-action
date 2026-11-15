@@ -35,11 +35,30 @@ jobs:
           CHART_LOCATION: ./test/chart
           CHART_VALUES: ./test/chart/values-test.yaml
 
+      - name: Record the downloaded helm
+        id: first
+        if: matrix.helm == 'pinned'
+        run: |
+          bin=$(ls "$RUNNER_TEMP"/helm-check-action/*/helm)
+          echo "stamp=$(stat -c '%i %Z' "$bin")" >> "$GITHUB_OUTPUT"
+
       - name: The same step again reuses the helm it picked
         uses: ./
         env:
           CHART_LOCATION: ./test/chart
           CHART_VALUES: ./test/chart/values.yaml
+
+      - name: Assert the second call did not download helm again
+        if: matrix.helm == 'pinned'
+        env:
+          FIRST: ${{ steps.first.outputs.stamp }}
+        run: |
+          bin=$(ls "$RUNNER_TEMP"/helm-check-action/*/helm)
+          now=$(stat -c '%i %Z' "$bin")
+          echo "first: $FIRST, now: $now"
+          test -n "$FIRST"
+          test "$now" = "$FIRST"
+          test -z "$(ls "$RUNNER_TEMP"/helm-check-action/*/helm.tgz 2>/dev/null)"
 
       - name: A broken chart fails
         id: broken
