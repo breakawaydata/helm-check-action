@@ -16,7 +16,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # runner: the hosted image's own helm when it is helm 3, else the pinned fallback.
+        # runner: the hosted image as is. It uses the image's helm when that is helm 3; ubuntu-latest
+        # (ubuntu-26.04) ships helm 4, so today this leg takes the pinned fallback too. The ARC
+        # runner image's helm 3 path was proved on arc-4vcpu (BAE-13760 PR).
         # pinned: no helm on PATH, so the action must download and verify the pinned helm.
         helm: [runner, pinned]
     steps:
