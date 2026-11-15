@@ -1,0 +1,4 @@
+apiVersion: v2
+name: helm-check-fixture
+description: Fixture chart for the action's self-test
+version: 0.1.0

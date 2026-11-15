@@ -1,0 +1,62 @@
+name: self-test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  self-test:
+    name: self-test (${{ matrix.helm }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        # runner: the hosted image's own helm when it is helm 3, else the pinned fallback.
+        # pinned: no helm on PATH, so the action must download and verify the pinned helm.
+        helm: [runner, pinned]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Hide the runner's helm
+        if: matrix.helm == 'pinned'
+        run: |
+          while command -v helm >/dev/null 2>&1; do sudo rm -f "$(command -v helm)"; hash -r; done
+
+      - name: A valid chart passes
+        uses: ./
+        env:
+          CHART_LOCATION: ./test/chart
+          CHART_VALUES: ./test/chart/values-test.yaml
+
+      - name: The same step again reuses the helm it picked
+        uses: ./
+        env:
+          CHART_LOCATION: ./test/chart
+          CHART_VALUES: ./test/chart/values.yaml
+
+      - name: A broken chart fails
+        id: broken
+        continue-on-error: true
+        uses: ./
+        env:
+          CHART_LOCATION: ./test/bad-chart
+          CHART_VALUES: ./test/bad-chart/values-test.yaml
+
+      - name: No chart location fails
+        id: missing
+        continue-on-error: true
+        uses: ./
+
+      - name: Assert the failure cases failed
+        env:
+          BROKEN: ${{ steps.broken.outcome }}
+          MISSING: ${{ steps.missing.outcome }}
+        run: |
+          echo "broken chart: $BROKEN, missing location: $MISSING"
+          test "$BROKEN" = failure
+          test "$MISSING" = failure

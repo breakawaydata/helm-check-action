@@ -1,0 +1,51 @@
+name: GitHub Action for Helm Templates Validation
+description: Checks if helm templates are valid (helm lint, then helm template with the given values)
+author: BreakAway Data
+branding:
+  icon: cloud
+  color: blue
+
+# The interface is unchanged from the Docker action this replaces: the chart and values come from
+# the step's env (CHART_LOCATION, CHART_VALUES), there are no inputs and no outputs, and the step
+# fails when lint or template fails.
+#
+# BAE-13760: this used to be a Docker action built FROM alpine/helm, so every run pulled that image
+# from Docker Hub without authentication (rate limits, and on self-hosted runners a container pull
+# per step). It is now a composite action that runs entrypoint.sh on the runner itself, with the
+# runner's own helm 3 when it has one (GitHub's hosted images and our ARC runner image both do), and
+# otherwise a pinned helm downloaded from get.helm.sh and checked against its sha256.
+runs:
+  using: composite
+  steps:
+    - name: Helm check
+      shell: bash
+      env:
+        HELM_CHECK_PINNED_VERSION: "3.19.0"
+        HELM_CHECK_PINNED_SHA256_AMD64: a7f81ce08007091b86d8bd696eb4d86b8d0f2e1b9f6c714be62f82f96a594496
+        HELM_CHECK_PINNED_SHA256_ARM64: 440cf7add0aee27ebc93fada965523c1dc2e0ab340d4348da2215737fc0d76ad
+      run: |
+        set -euo pipefail
+        # Use the runner's helm only when it is helm 3, the major the charts were checked with
+        # before. Anything else (no helm, or helm 4) gets the pinned helm 3 below.
+        if command -v helm >/dev/null 2>&1 && helm version --template '{{.Version}}' 2>/dev/null | grep -q '^v3\.'; then
+          echo "helm-check: using the runner's helm $(helm version --template '{{.Version}}') at $(command -v helm)"
+        else
+          case "$(uname -m)" in
+            x86_64|amd64) arch=amd64; sha="$HELM_CHECK_PINNED_SHA256_AMD64" ;;
+            aarch64|arm64) arch=arm64; sha="$HELM_CHECK_PINNED_SHA256_ARM64" ;;
+            *) echo "::error::helm-check: no pinned helm for architecture $(uname -m)"; exit 1 ;;
+          esac
+          dir="${RUNNER_TEMP:-/tmp}/helm-check-action/helm-v${HELM_CHECK_PINNED_VERSION}-${arch}"
+          if [ ! -x "$dir/helm" ]; then
+            mkdir -p "$dir"
+            tgz="$dir/helm.tgz"
+            curl -fsSL --retry 3 -o "$tgz" "https://get.helm.sh/helm-v${HELM_CHECK_PINNED_VERSION}-linux-${arch}.tar.gz"
+            echo "${sha}  ${tgz}" | sha256sum -c -
+            tar -xzf "$tgz" -C "$dir" --strip-components=1 "linux-${arch}/helm"
+            rm -f "$tgz"
+          fi
+          export PATH="$dir:$PATH"
+          echo "helm-check: using the pinned helm $(helm version --template '{{.Version}}') at $dir/helm"
+        fi
+        set +eu +o pipefail
+        bash "$GITHUB_ACTION_PATH/entrypoint.sh"

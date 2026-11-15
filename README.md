@@ -12,8 +12,9 @@ commands
 * [Testing](#testing)
 
 ## Components
-* `Dockerfile`: contains docker image configuration
+* `action.yml`: a composite action that runs on the runner itself, with no container image. It uses the runner's own helm when that is helm 3, and otherwise downloads a pinned helm from get.helm.sh and checks its sha256 before running it
 * `entrypoint.sh`: contains executable script for helm templates validation
+* `test/` and `.github/workflows/self-test.yml`: fixture charts and the workflow that checks the action on every pull request
 
 ## Environment variables
 * `CHART_LOCATION`: chart folder; required field for `helm lint` and `helm template` executions
